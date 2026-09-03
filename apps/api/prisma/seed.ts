@@ -4,42 +4,66 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding StockFlow database...');
+  console.log('Seeding StockFlow database with comprehensive demo data...');
 
-  // Clean existing demo data safely
-  const existingUser = await prisma.user.findUnique({
-    where: { email: 'admin@stockflow.dev' },
-  });
+  const demoEmails = ['admin@stockflow.dev', 'staff@stockflow.dev', 'demo@stockflow.dev'];
 
-  if (existingUser) {
-    console.log('Cleaning existing demo data...');
-    await prisma.invoiceItem.deleteMany({
-      where: { invoice: { userId: existingUser.id } },
-    });
-    await prisma.invoice.deleteMany({
-      where: { userId: existingUser.id },
-    });
-    await prisma.product.deleteMany({
-      where: { userId: existingUser.id },
-    });
-    await prisma.user.delete({
-      where: { id: existingUser.id },
-    });
+  // Clean existing demo users and their related data safely
+  for (const email of demoEmails) {
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      console.log(`Cleaning existing demo data for ${email}...`);
+      await prisma.invoiceItem.deleteMany({
+        where: { invoice: { userId: existingUser.id } },
+      });
+      await prisma.invoice.deleteMany({
+        where: { userId: existingUser.id },
+      });
+      await prisma.product.deleteMany({
+        where: { userId: existingUser.id },
+      });
+      await prisma.user.delete({
+        where: { id: existingUser.id },
+      });
+    }
   }
 
-  // 1. Create Demo User
-  const passwordHash = await bcrypt.hash('Password123!', 10);
-  const user = await prisma.user.create({
+  const commonPasswordHash = await bcrypt.hash('Password123!', 10);
+
+  // -------------------------------------------------------------
+  // 1. Create Demo Users (Multi-tenant demonstration - Requirement A7)
+  // -------------------------------------------------------------
+  const adminUser = await prisma.user.create({
     data: {
       email: 'admin@stockflow.dev',
-      passwordHash,
+      passwordHash: commonPasswordHash,
       name: 'StockFlow Admin',
     },
   });
-  console.log(`Created demo user: ${user.email} (Password: Password123!)`);
+  console.log(`✓ Created primary demo user: ${adminUser.email} (Password: Password123!)`);
 
-  // 2. Create Products
-  const productsData = [
+  const staffUser = await prisma.user.create({
+    data: {
+      email: 'staff@stockflow.dev',
+      passwordHash: commonPasswordHash,
+      name: 'Warehouse Operations',
+    },
+  });
+  console.log(`✓ Created staff demo user: ${staffUser.email} (Password: Password123!)`);
+
+  const auditUser = await prisma.user.create({
+    data: {
+      email: 'demo@stockflow.dev',
+      passwordHash: commonPasswordHash,
+      name: 'Evaluator Sandbox',
+    },
+  });
+  console.log(`✓ Created sandbox demo user: ${auditUser.email} (Password: Password123!)`);
+
+  // -------------------------------------------------------------
+  // 2. Create Products for Primary Admin User (12 diverse items)
+  // -------------------------------------------------------------
+  const adminProductsData = [
     {
       sku: 'PROD-001',
       name: 'Ergonomic Mechanical Keyboard',
@@ -82,25 +106,107 @@ async function main() {
       unitPrice: 3500, // $35.00
       quantityOnHand: 50,
     },
+    {
+      sku: 'PROD-007',
+      name: '4K Ultra-HD Streaming Webcam',
+      description: 'Auto-focus HDR webcam with built-in stereo dual noise-cancelling mics',
+      unitPrice: 8900, // $89.00
+      quantityOnHand: 25,
+    },
+    {
+      sku: 'PROD-008',
+      name: 'USB-C Braided Fast Cable 2M (Pack of 3)',
+      description: '100W PD rated heavy-duty nylon braided cables with reinforced collars',
+      unitPrice: 2400, // $24.00
+      quantityOnHand: 80,
+    },
+    {
+      sku: 'PROD-009',
+      name: 'Studio Condenser USB Microphone',
+      description: 'Cardioid studio capsule with zero-latency 3.5mm monitor jack and pop filter',
+      unitPrice: 11500, // $115.00
+      quantityOnHand: 18,
+    },
+    {
+      sku: 'PROD-010',
+      name: 'Smart Desk Mat with Qi Fast Charging',
+      description: 'Waterproof vegan leather desk pad with integrated 15W wireless phone charger',
+      unitPrice: 4200, // $42.00
+      quantityOnHand: 35,
+    },
+    {
+      sku: 'PROD-011',
+      name: 'Heavy-Duty Corrugated Shipping Boxes (25-Pack)',
+      description: 'Double-wall ECT-32 kraft corrugated storage and dispatch carton boxes',
+      unitPrice: 3200, // $32.00
+      quantityOnHand: 75,
+    },
+    {
+      sku: 'PROD-012',
+      name: 'Thermal Barcode & Shipping Label Printer',
+      description: 'High-speed 152mm/s direct thermal label printer supporting 4x6 labels',
+      unitPrice: 16500, // $165.00
+      quantityOnHand: 12,
+    },
   ];
 
-  const createdProducts = [];
-  for (const item of productsData) {
-    const product = await prisma.product.create({
+  const adminProducts = [];
+  for (const item of adminProductsData) {
+    const p = await prisma.product.create({
       data: {
         ...item,
-        userId: user.id,
+        userId: adminUser.id,
       },
     });
-    createdProducts.push(product);
+    adminProducts.push(p);
   }
-  console.log(`Created ${createdProducts.length} demo products.`);
+  console.log(`✓ Created ${adminProducts.length} products for ${adminUser.email}`);
 
-  // 3. Create Sample Invoices
-  // Invoice 1: ISSUED
+  // -------------------------------------------------------------
+  // 3. Create Products for Warehouse Staff (Proving SKU per-user isolation)
+  // -------------------------------------------------------------
+  const staffProductsData = [
+    {
+      sku: 'PROD-001', // Demonstrates identical SKU allowed for different user!
+      name: 'Heavy-Duty Hydraulic Pallet Jack 2500KG',
+      description: 'Reinforced steel pallet truck with polyurethane wheels',
+      unitPrice: 38000, // $380.00
+      quantityOnHand: 6,
+    },
+    {
+      sku: 'PROD-002',
+      name: 'Industrial Rugged Handheld Barcode Scanner',
+      description: 'IP65 drop-resistant 2D QR and barcode scanner with Bluetooth cradle',
+      unitPrice: 22000, // $220.00
+      quantityOnHand: 14,
+    },
+    {
+      sku: 'PROD-003',
+      name: 'Recycled Cushion Bubble Wrap Roll 50M',
+      description: 'High-tensile protective packaging roll 500mm width',
+      unitPrice: 2900, // $29.00
+      quantityOnHand: 40,
+    },
+  ];
+
+  for (const item of staffProductsData) {
+    await prisma.product.create({
+      data: {
+        ...item,
+        userId: staffUser.id,
+      },
+    });
+  }
+  console.log(`✓ Created ${staffProductsData.length} warehouse products for ${staffUser.email} (proving per-user SKU isolation)`);
+
+  // -------------------------------------------------------------
+  // 4. Create Invoices for Admin User across ALL Statuses
+  // -------------------------------------------------------------
+
+  // Invoice 1: ISSUED (Awaiting payment, stock decremented)
   const inv1Items = [
-    { product: createdProducts[0], quantity: 2 }, // 2x Keyboard = 24000
-    { product: createdProducts[3], quantity: 4 }, // 4x Mouse = 22000
+    { product: adminProducts[0], quantity: 2 }, // 2x Keyboard = 24000
+    { product: adminProducts[3], quantity: 4 }, // 4x Mouse = 22000
   ];
   const inv1Subtotal = 24000 + 22000; // 46000
   const inv1Tax = Math.round(inv1Subtotal * 0.11); // 5060
@@ -108,13 +214,13 @@ async function main() {
 
   await prisma.invoice.create({
     data: {
-      userId: user.id,
+      userId: adminUser.id,
       invoiceNumber: 'INV-2026-0001',
       customerName: 'Acme Logistics Corp',
       status: InvoiceStatus.ISSUED,
       issueDate: new Date(),
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      notes: 'Standard 14-day payment terms. Deliver to Building B.',
+      notes: 'Standard Net 14 terms. Delivery to Distribution Center Building B.',
       subtotal: inv1Subtotal,
       taxRate: 0.11,
       taxAmount: inv1Tax,
@@ -131,20 +237,20 @@ async function main() {
     },
   });
 
-  // Invoice 2: PAID
+  // Invoice 2: PAID (Settled order)
   const inv2Subtotal = 49900 + 18500; // Monitor + Dock = 68400
   const inv2Tax = Math.round(inv2Subtotal * 0.11); // 7524
   const inv2Total = inv2Subtotal + inv2Tax; // 75924
 
   await prisma.invoice.create({
     data: {
-      userId: user.id,
+      userId: adminUser.id,
       invoiceNumber: 'INV-2026-0002',
       customerName: 'Apex Technology Solutions',
       status: InvoiceStatus.PAID,
       issueDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      notes: 'Paid via Bank Transfer ref #TRX-98214.',
+      notes: 'Paid via Corporate Wire Transfer Ref #TRX-98214.',
       subtotal: inv2Subtotal,
       taxRate: 0.11,
       taxAmount: inv2Tax,
@@ -152,38 +258,38 @@ async function main() {
       items: {
         create: [
           {
-            productId: createdProducts[1].id,
-            productName: createdProducts[1].name,
-            unitPrice: createdProducts[1].unitPrice,
+            productId: adminProducts[1].id,
+            productName: adminProducts[1].name,
+            unitPrice: adminProducts[1].unitPrice,
             quantity: 1,
-            lineTotal: createdProducts[1].unitPrice,
+            lineTotal: adminProducts[1].unitPrice,
           },
           {
-            productId: createdProducts[4].id,
-            productName: createdProducts[4].name,
-            unitPrice: createdProducts[4].unitPrice,
+            productId: adminProducts[4].id,
+            productName: adminProducts[4].name,
+            unitPrice: adminProducts[4].unitPrice,
             quantity: 1,
-            lineTotal: createdProducts[4].unitPrice,
+            lineTotal: adminProducts[4].unitPrice,
           },
         ],
       },
     },
   });
 
-  // Invoice 3: DRAFT
-  const inv3Subtotal = 19900 * 2 + 3500 * 3; // 2x Headphones + 3x Stand = 39800 + 10500 = 50300
-  const inv3Tax = Math.round(inv3Subtotal * 0.11); // 5533
-  const inv3Total = inv3Subtotal + inv3Tax; // 55833
+  // Invoice 3: DRAFT (Pending quote, stock untouched)
+  const inv3Subtotal = 19900 * 2 + 3500 * 3 + 8900; // 2x Headphones + 3x Stand + 1x Webcam = 39800 + 10500 + 8900 = 59200
+  const inv3Tax = Math.round(inv3Subtotal * 0.11); // 6512
+  const inv3Total = inv3Subtotal + inv3Tax; // 65712
 
   await prisma.invoice.create({
     data: {
-      userId: user.id,
+      userId: adminUser.id,
       invoiceNumber: 'INV-2026-0003',
-      customerName: 'Starlight Media Hub',
+      customerName: 'Starlight Media Studio',
       status: InvoiceStatus.DRAFT,
       issueDate: new Date(),
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      notes: 'Pending purchase order approval from finance committee.',
+      notes: 'Draft quotation awaiting PO clearance from procurement.',
       subtotal: inv3Subtotal,
       taxRate: 0.11,
       taxAmount: inv3Tax,
@@ -191,25 +297,79 @@ async function main() {
       items: {
         create: [
           {
-            productId: createdProducts[2].id,
-            productName: createdProducts[2].name,
-            unitPrice: createdProducts[2].unitPrice,
+            productId: adminProducts[2].id,
+            productName: adminProducts[2].name,
+            unitPrice: adminProducts[2].unitPrice,
             quantity: 2,
-            lineTotal: createdProducts[2].unitPrice * 2,
+            lineTotal: adminProducts[2].unitPrice * 2,
           },
           {
-            productId: createdProducts[5].id,
-            productName: createdProducts[5].name,
-            unitPrice: createdProducts[5].unitPrice,
+            productId: adminProducts[5].id,
+            productName: adminProducts[5].name,
+            unitPrice: adminProducts[5].unitPrice,
             quantity: 3,
-            lineTotal: createdProducts[5].unitPrice * 3,
+            lineTotal: adminProducts[5].unitPrice * 3,
+          },
+          {
+            productId: adminProducts[6].id,
+            productName: adminProducts[6].name,
+            unitPrice: adminProducts[6].unitPrice,
+            quantity: 1,
+            lineTotal: adminProducts[6].unitPrice,
           },
         ],
       },
     },
   });
 
-  console.log('Seeding completed successfully!');
+  // Invoice 4: CANCELLED (Illustrates cancelled terminal state and audit history)
+  const inv4Subtotal = 16500 + 3200 * 2; // 1x Label Printer + 2x Shipping Boxes = 22900
+  const inv4Tax = Math.round(inv4Subtotal * 0.11); // 2519
+  const inv4Total = inv4Subtotal + inv4Tax; // 25419
+
+  await prisma.invoice.create({
+    data: {
+      userId: adminUser.id,
+      invoiceNumber: 'INV-2026-0004',
+      customerName: 'BlueSky Express Freight',
+      status: InvoiceStatus.CANCELLED,
+      issueDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+      dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      notes: 'Order cancelled by customer prior to dispatch. Stock was restored.',
+      subtotal: inv4Subtotal,
+      taxRate: 0.11,
+      taxAmount: inv4Tax,
+      total: inv4Total,
+      items: {
+        create: [
+          {
+            productId: adminProducts[11].id,
+            productName: adminProducts[11].name,
+            unitPrice: adminProducts[11].unitPrice,
+            quantity: 1,
+            lineTotal: adminProducts[11].unitPrice,
+          },
+          {
+            productId: adminProducts[10].id,
+            productName: adminProducts[10].name,
+            unitPrice: adminProducts[10].unitPrice,
+            quantity: 2,
+            lineTotal: adminProducts[10].unitPrice * 2,
+          },
+        ],
+      },
+    },
+  });
+
+  console.log(`✓ Created 4 invoices for ${adminUser.email} (DRAFT, ISSUED, PAID, CANCELLED)`);
+
+  console.log('\n========================================');
+  console.log('🎉 Seed completed successfully!');
+  console.log('Available Demo Logins (Password: Password123!):');
+  console.log('1. admin@stockflow.dev (Primary Admin - 12 Products, 4 Invoices)');
+  console.log('2. staff@stockflow.dev (Warehouse Workspace - 3 Heavy Products)');
+  console.log('3. demo@stockflow.dev  (Fresh Sandbox Workspace)');
+  console.log('========================================\n');
 }
 
 main()
