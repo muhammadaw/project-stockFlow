@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap');
+
+:root {
+  --color-primary: #0F172A;
+  --color-secondary: #334155;
+  --color-accent: #0369A1;
+  --color-background: #F8FAFC;
+  --color-foreground: #020617;
+}
+
+body {
+  color: var(--color-foreground);
+  background: var(--color-background);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures for alignment in data tables */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
