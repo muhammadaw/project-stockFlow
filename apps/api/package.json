@@ -11,10 +11,11 @@
     "test": "jest --config ./test/jest-e2e.json --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev --name init",
-    "db:push": "prisma db push",
-    "db:seed": "ts-node prisma/seed.ts"
+    "env:sync": "node -e \"const fs=require('fs'); if(!fs.existsSync('.env')&&fs.existsSync('../../.env')) fs.copyFileSync('../../.env', '.env');\"",
+    "db:generate": "npm run env:sync && prisma generate",
+    "db:migrate": "npm run env:sync && prisma migrate dev --name init",
+    "db:push": "npm run env:sync && prisma db push",
+    "db:seed": "npm run env:sync && ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

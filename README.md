@@ -71,18 +71,15 @@ cd ../..
 
 ### Step 3: Database Migrations & Seeding
 
-Run Prisma migrations and seed the demo data:
+Run Prisma schema synchronization and seed the demo data with a single command from the monorepo root:
 
 ```bash
-# Generate Prisma Client & apply migrations
-cd apps/api
-npm run db:generate
-npm run db:push
-
-# Seed demo user, catalog, and invoices
-npm run db:seed
-cd ../..
+# Push schema & seed demo data (single root command)
+npm run db:setup
 ```
+
+*(Alternatively, you can run from `apps/api`: `npm run db:push && npm run db:seed` — scripts automatically synchronize the root `.env`).*
+
 
 ---
 
@@ -191,6 +188,7 @@ Interactive **Swagger** documentation is generated directly by NestJS:
 2. **Audit Log & Stock Ledger:** Implement an immutable inventory transaction ledger (`InventoryMovement: IN, OUT, ADJUST, RETURN`) recording the timestamp, invoice reference, and user who changed stock levels.
 3. **End-to-End Playwright Suite:** Add automated browser tests simulating a complete user journey from sign-up to creating products, issuing an invoice, and validating stock decrement visually.
 4. **CSV Bulk Import/Export:** Provide bulk import for legacy product spreadsheets and invoice exports for accounting software.
+5. **Role-Based Access Control (RBAC) & Team Management:** Implement granular permissions and role management (`ADMIN`, `WAREHOUSE_STAFF`, `BILLING_CLERK`, `VIEWER`) within organization workspaces. This would restrict warehouse staff to inventory counts, billing clerks to drafting/issuing invoices, and reserve price updates or invoice cancellations for admins.
 
 ---
 
