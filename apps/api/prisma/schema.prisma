@@ -1,0 +1,85 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  CANCELLED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  products     Product[]
+  invoices     Invoice[]
+
+  @@map("users")
+}
+
+model Product {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sku            String
+  name           String
+  description    String?
+  unitPrice      Int           // Integer minor units (cents / Rupiah)
+  quantityOnHand Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  invoiceItems   InvoiceItem[]
+
+  @@unique([userId, sku])
+  @@index([userId, name])
+  @@map("products")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceNumber String        @unique
+  customerName  String
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime?
+  status        InvoiceStatus @default(DRAFT)
+  notes         String?
+  subtotal      Int           // Integer minor units
+  taxRate       Float         @default(0.11) // Default 11%
+  taxAmount     Int           // Integer minor units
+  total         Int           // Integer minor units
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items         InvoiceItem[]
+
+  @@index([userId, status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName String   // Snapshot at creation
+  unitPrice   Int      // Snapshot at creation (cents)
+  quantity    Int
+  lineTotal   Int      // Snapshot at creation (cents)
+
+  @@map("invoice_items")
+}
